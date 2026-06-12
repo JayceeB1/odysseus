@@ -236,6 +236,14 @@ def _digest_windows(now):
     ]
 
 
+def _task_toolset_profile(task):
+    for attr in ("toolset_profile", "toolset_profiles", "toolset", "tool_profile"):
+        value = getattr(task, attr, None)
+        if value:
+            return value
+    return None
+
+
 class TaskScheduler:
     def __init__(self, session_manager):
         self._session_manager = session_manager
@@ -1386,10 +1394,13 @@ class TaskScheduler:
 
         # Try using the agent loop for full tool access
         try:
+            _toolset_profile = _task_toolset_profile(task)
             result = await self._run_agent_loop(
                 endpoint_url, model, task, session_id,
                 system_prompt=system_prompt, disabled_tools=disabled_tools,
                 relevant_tools=relevant_tools,
+                toolset_surface="cron" if _toolset_profile else "web",
+                toolset_profile=_toolset_profile,
             )
         except Exception as e:
             logger.warning(f"Agent loop failed for task '{task.name}', falling back to simple call: {e}")
@@ -1587,7 +1598,9 @@ class TaskScheduler:
                               system_prompt: str | None = None,
                               disabled_tools: set | None = None,
                               relevant_tools: set | None = None,
-                              override_user_message: str | None = None) -> str:
+                              override_user_message: str | None = None,
+                              toolset_surface: str = "web",
+                              toolset_profile=None) -> str:
         """Run the full agent loop with tool access, collecting the final text."""
         from src.agent_loop import stream_agent_loop
 
@@ -1642,6 +1655,8 @@ class TaskScheduler:
             headers=headers,
             disabled_tools=disabled_tools,
             relevant_tools=relevant_tools,
+            toolset_surface=toolset_surface,
+            toolset_profile=toolset_profile,
             fallbacks=_task_fallbacks,
         ):
             if event_str.startswith("data: ") and not event_str.startswith("data: [DONE]"):

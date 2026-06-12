@@ -42,9 +42,10 @@ def get_builtin_function_schemas(
     schemas: Sequence[dict],
     *,
     admin_schema_names: Iterable[str] = (),
+    context: ToolContext | None = None,
 ) -> list[dict]:
     registry = CapabilityRegistry()
     registry.register_provider(
         BuiltinToolProvider(schemas, admin_schema_names=admin_schema_names)
     )
-    return registry.list_schemas()
+    return registry.list_schemas(context)

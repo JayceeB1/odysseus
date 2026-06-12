@@ -478,6 +478,9 @@ async def run_teacher_inline(
     student_tool_events: List[Dict[str, Any]],
     student_reply: str,
     owner: Optional[str] = None,
+    toolset_surface: str = "web",
+    toolset_profile=None,
+    allow_admin_toolset: bool = False,
 ):
     """Async generator. Yields SSE event strings.
 
@@ -572,6 +575,9 @@ async def run_teacher_inline(
         messages=teacher_messages,
         headers=teacher_headers,
         owner=owner,
+        toolset_surface=toolset_surface,
+        toolset_profile=toolset_profile,
+        allow_admin_toolset=allow_admin_toolset,
         _is_teacher_run=True,
     ):
         # Swallow teacher's own [DONE] — outer loop emits the real one

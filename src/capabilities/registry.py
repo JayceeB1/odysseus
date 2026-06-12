@@ -37,9 +37,15 @@ class CapabilityRegistry:
     def list_tools(self, context: ToolContext | None = None) -> List[ToolDefinition]:
         definitions: List[ToolDefinition] = []
         seen: Dict[str, str] = {}
+        allowed = context.allowed_tools if context else None
+        disabled = context.disabled_tools if context else frozenset()
 
         for provider in self._providers.values():
             for definition in provider.list_tools(context):
+                if allowed is not None and definition.name not in allowed:
+                    continue
+                if definition.name in disabled:
+                    continue
                 if definition.name in seen:
                     raise ValueError(
                         f"Tool name conflict: {definition.name} from "

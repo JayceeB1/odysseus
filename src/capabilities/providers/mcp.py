@@ -49,7 +49,8 @@ def get_mcp_function_schemas(
     mcp_manager,
     *,
     disabled_map: Optional[Dict[str, Set[str]]] = None,
+    context: ToolContext | None = None,
 ) -> list[dict]:
     registry = CapabilityRegistry()
     registry.register_provider(McpToolProvider(mcp_manager, disabled_map=disabled_map))
-    return registry.list_schemas()
+    return registry.list_schemas(context)

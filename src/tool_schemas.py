@@ -14,6 +14,7 @@ import json
 import logging
 from typing import Optional, TYPE_CHECKING
 
+from src.capabilities.models import ToolContext
 from src.capabilities.providers.builtin import get_builtin_function_schemas
 
 if TYPE_CHECKING:
@@ -1193,9 +1194,9 @@ FUNCTION_TOOL_SCHEMAS = [
 ]
 
 
-def get_function_schemas() -> list[dict]:
+def get_function_schemas(context: ToolContext | None = None) -> list[dict]:
     """Return builtin function-tool schemas through the capability registry."""
-    return get_builtin_function_schemas(FUNCTION_TOOL_SCHEMAS)
+    return get_builtin_function_schemas(FUNCTION_TOOL_SCHEMAS, context=context)
 
 
 # ---------------------------------------------------------------------------

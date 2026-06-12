@@ -12,6 +12,9 @@ class ToolContext:
 
     owner: Optional[str] = None
     needs_admin: bool = False
+    surface: str = "web"
+    active_toolsets: frozenset[str] = field(default_factory=frozenset)
+    allowed_tools: Optional[frozenset[str]] = None
     disabled_tools: frozenset[str] = field(default_factory=frozenset)
     mcp_disabled_map: Mapping[str, frozenset[str]] = field(default_factory=dict)
 
