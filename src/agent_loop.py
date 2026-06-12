@@ -22,6 +22,8 @@ from src.prompt_security import untrusted_context_message
 from src.tool_security import blocked_tools_for_owner, plan_mode_disabled_tools
 from src.tool_policy import GUIDE_ONLY_DIRECTIVE, ToolPolicy
 from src.tool_utils import _truncate, get_mcp_manager
+from src.capabilities.models import ToolContext
+from src.capabilities.policy import ToolsetPolicy, ToolsetPolicyError
 from src.agent_tools import (
     parse_tool_blocks,
     strip_tool_blocks,
@@ -30,11 +32,12 @@ from src.agent_tools import (
     set_active_document,
     set_active_model,
     function_call_to_tool_block,
-    FUNCTION_TOOL_SCHEMAS,
+    get_function_schemas,
     TOOL_TAGS,
     ToolBlock,
     MAX_AGENT_ROUNDS,
 )
+from src.capabilities.providers.mcp import get_mcp_function_schemas
 
 logger = logging.getLogger(__name__)
 
@@ -619,6 +622,33 @@ _ADMIN_SCHEMA_NAMES = frozenset([
 _TOOL_SELECTION_TIMEOUT_SECONDS = 1.5
 
 
+def _apply_toolset_policy(
+    disabled_tools: Set[str],
+    relevant_tools: Optional[Set[str]],
+    *,
+    surface: str = "web",
+    requested_profile=None,
+    owner: Optional[str] = None,
+    needs_admin: bool = False,
+    allow_admin_toolset: bool = False,
+):
+    del needs_admin
+    resolution = ToolsetPolicy.default().resolve(
+        surface=surface,
+        user=owner,
+        requested=requested_profile,
+        needs_admin=allow_admin_toolset,
+    )
+    if resolution.allowed_tools is None:
+        return disabled_tools, relevant_tools, resolution
+
+    allowed = set(resolution.allowed_tools)
+    disabled_tools.update(set(TOOL_TAGS) - allowed)
+    if relevant_tools is not None:
+        relevant_tools &= allowed
+    return disabled_tools, relevant_tools, resolution
+
+
 def _is_ollama_openai_compat_url(endpoint_url: str) -> bool:
     """Return True for local Ollama's OpenAI-compatible /v1 surface.
 
@@ -890,7 +920,10 @@ def _build_system_prompt(
     # Dynamic parts that change per request
     mcp_schemas = []
     if mcp_mgr:
-        mcp_schemas = mcp_mgr.get_all_openai_schemas(mcp_disabled_map or {})
+        mcp_schemas = get_mcp_function_schemas(
+            mcp_mgr,
+            disabled_map=mcp_disabled_map or {},
+        )
 
     set_active_model(model)
 
@@ -1734,6 +1767,9 @@ async def stream_agent_loop(
     tool_policy: Optional[ToolPolicy] = None,
     workspace: Optional[str] = None,
     _is_teacher_run: bool = False,
+    toolset_surface: str = "web",
+    toolset_profile=None,
+    allow_admin_toolset: bool = False,
 ) -> AsyncGenerator[str, None]:
     """Streaming agent loop generator.
 
@@ -1770,6 +1806,30 @@ async def stream_agent_loop(
 
     _t0 = time.time()
     _needs_admin = _detect_admin_intent(messages)
+    try:
+        disabled_tools, relevant_tools, _toolset_resolution = _apply_toolset_policy(
+            disabled_tools,
+            relevant_tools,
+            surface=toolset_surface,
+            requested_profile=toolset_profile,
+            owner=owner,
+            needs_admin=_needs_admin,
+            allow_admin_toolset=allow_admin_toolset,
+        )
+    except ToolsetPolicyError as exc:
+        logger.warning(
+            "[toolset-policy] fail-closed surface=%s requested=%r reason=%s",
+            toolset_surface,
+            toolset_profile,
+            exc,
+        )
+        disabled_tools.update(TOOL_TAGS)
+        mcp_mgr = None
+        _toolset_resolution = None
+    else:
+        if _toolset_resolution and _toolset_resolution.restricted:
+            mcp_mgr = None
+            logger.info("[toolset-policy] resolved %s", _toolset_resolution.to_trace())
     _last_user = _extract_last_user_message(messages)
     _intent = _classify_agent_request(messages, _last_user)
     # Tool retrieval uses the latest message by default. It may inherit recent
@@ -2139,10 +2199,24 @@ async def stream_agent_loop(
             # write the answer instead of flailing further.
             all_tool_schemas = []
         elif _is_api_model:
+            function_schemas = get_function_schemas(
+                ToolContext(
+                    owner=owner,
+                    needs_admin=_needs_admin,
+                    surface=toolset_surface,
+                    active_toolsets=frozenset(
+                        _toolset_resolution.active_toolsets if _toolset_resolution else ()
+                    ),
+                    allowed_tools=(
+                        _toolset_resolution.allowed_tools if _toolset_resolution else None
+                    ),
+                    disabled_tools=frozenset(disabled_tools or ()),
+                )
+            )
             # Filter schemas by RAG-selected tools (if available)
             if _relevant_tools:
                 base_schemas = [
-                    s for s in FUNCTION_TOOL_SCHEMAS
+                    s for s in function_schemas
                     if s.get("function", {}).get("name") in _relevant_tools
                 ]
                 _mcp_filtered = [
@@ -2151,8 +2225,8 @@ async def stream_agent_loop(
                 ]
                 all_tool_schemas = base_schemas + _mcp_filtered
             else:
-                base_schemas = FUNCTION_TOOL_SCHEMAS if _needs_admin else [
-                    s for s in FUNCTION_TOOL_SCHEMAS
+                base_schemas = function_schemas if _needs_admin else [
+                    s for s in function_schemas
                     if s.get("function", {}).get("name") not in _ADMIN_SCHEMA_NAMES
                 ]
                 all_tool_schemas = base_schemas + mcp_schemas
@@ -2630,7 +2704,15 @@ async def stream_agent_loop(
             else:
                 cmd_display = block.content.strip()
 
-            if tool_policy and tool_policy.blocks(block.tool_type):
+            if block.tool_type in disabled_tools:
+                desc = f"{block.tool_type}: DISABLED"
+                result = {
+                    "error": f"Tool '{block.tool_type}' is disabled for this request.",
+                    "exit_code": 1,
+                    "blocked": True,
+                }
+                logger.info("Tool blocked before start by disabled_tools: %s", block.tool_type)
+            elif tool_policy and tool_policy.blocks(block.tool_type):
                 desc = f"{block.tool_type}: BLOCKED"
                 result = {
                     "error": tool_policy.reason_for(block.tool_type),
@@ -2953,6 +3035,9 @@ async def stream_agent_loop(
                 student_tool_events=tool_events,
                 student_reply=full_response,
                 owner=owner,
+                toolset_surface=toolset_surface,
+                toolset_profile=toolset_profile,
+                allow_admin_toolset=allow_admin_toolset,
             ):
                 yield evt
         except Exception as _esc_err:
