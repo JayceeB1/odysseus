@@ -116,6 +116,12 @@ DEFAULT_SETTINGS = {
     # entry is an absolute path. Sensitive subpaths (.ssh, .gnupg, shell
     # rc files, SSH key files) are always blocked regardless of roots.
     "tool_path_extra_roots": [],
+    # Plugin hooks are an opt-in extension point for agent tool execution.
+    # They intentionally ship disabled and with an empty allowlist so installing
+    # this code cannot execute third-party plugin code by default.
+    "plugins_enabled": False,
+    "plugins_allowlist": [],
+    "plugin_hook_timeout_seconds": 1.0,
     "task_endpoint_id": "",
     "task_model": "",
     "default_endpoint_id": "",
