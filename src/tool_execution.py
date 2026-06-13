@@ -492,6 +492,71 @@ async def _document_tool_dispatch(
     return None
 
 
+async def _dispatch_before_tool_hooks(
+    *,
+    tool: str,
+    content: str,
+    session_id: Optional[str],
+    owner: Optional[str],
+) -> tuple[str, Optional[Tuple[str, Dict]]]:
+    """Run opt-in plugin hooks before dispatching a tool.
+
+    Hooks are disabled by default and only run for allowlisted in-process
+    plugins. A deny decision fails closed before any tool side effect occurs.
+    """
+    from src.plugins.hooks import dispatch_before_tool
+    from src.plugins.models import HookAction
+
+    decision = await dispatch_before_tool(
+        tool_name=tool,
+        content=content,
+        owner=owner,
+        session_id=session_id,
+        workspace=get_active_workspace(),
+    )
+    if decision.denied:
+        reason = decision.reason or "Plugin hook denied tool execution."
+        return content, (
+            f"{tool}: BLOCKED",
+            {
+                "error": reason,
+                "error_code": decision.code or "plugin_hook_denied",
+                "exit_code": 1,
+            },
+        )
+    if decision.action == HookAction.MUTATE and decision.content is not None:
+        return decision.content, None
+    return content, None
+
+
+async def _dispatch_after_tool_hooks(
+    *,
+    tool: str,
+    content: str,
+    result: Dict,
+    session_id: Optional[str],
+    owner: Optional[str],
+) -> None:
+    """Run observe-only plugin hooks after a tool result is available."""
+    from src.plugins.hooks import dispatch_after_tool
+    from src.plugins.models import HookAction
+
+    decision = await dispatch_after_tool(
+        tool_name=tool,
+        content=content,
+        result=result,
+        owner=owner,
+        session_id=session_id,
+        workspace=get_active_workspace(),
+    )
+    if decision.action != HookAction.ALLOW:
+        logger.warning(
+            "Ignoring non-allow after_tool plugin decision for already-executed tool=%s action=%s",
+            tool,
+            decision.action.value,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -618,6 +683,15 @@ async def _execute_tool_block_impl(
         }
         logger.warning("Public tool policy blocked owner=%r tool=%s", owner, tool)
         return desc, result
+
+    content, hook_block = await _dispatch_before_tool_hooks(
+        tool=tool,
+        content=content,
+        session_id=session_id,
+        owner=owner,
+    )
+    if hook_block is not None:
+        return hook_block
 
     # ask_user: the agent poses a multiple-choice question to the user to get a
     # decision/clarification. This is a pure UI-control marker — no subprocess,
@@ -870,6 +944,14 @@ async def _execute_tool_block_impl(
     else:
         desc = f"unknown: {tool}"
         result = {"error": f"Unknown tool type: {tool}", "exit_code": 1}
+
+    await _dispatch_after_tool_hooks(
+        tool=tool,
+        content=content,
+        result=result,
+        session_id=session_id,
+        owner=owner,
+    )
 
     logger.info(f"Tool executed: {desc} -> exit_code={result.get('exit_code', 'n/a')}")
     return desc, result
