@@ -24,6 +24,7 @@ from src.tool_policy import GUIDE_ONLY_DIRECTIVE, ToolPolicy
 from src.tool_utils import _truncate, get_mcp_manager
 from src.capabilities.models import ToolContext
 from src.capabilities.policy import ToolsetPolicy, ToolsetPolicyError
+from src.runtime import ContextEngine, TurnContext
 from src.agent_tools import (
     parse_tool_blocks,
     strip_tool_blocks,
@@ -2019,14 +2020,26 @@ async def stream_agent_loop(
         _is_api_model = False
     else:
         _is_api_model = any(h in endpoint_url for h in _API_HOSTS) or _model_supports_tools
-    messages, mcp_schemas = _build_system_prompt(
-        messages, model, active_document, mcp_mgr, disabled_tools,
-        needs_admin=_needs_admin, relevant_tools=_relevant_tools,
+    _turn_context = TurnContext(
+        messages=messages,
+        user=owner,
+        session_id=session_id,
+        surface="agent",
+        toolset=_relevant_tools,
+    )
+    _context_result = ContextEngine(_build_system_prompt).build_turn(
+        _turn_context,
+        model=model,
+        active_document=active_document,
+        mcp_mgr=mcp_mgr,
+        disabled_tools=disabled_tools,
+        needs_admin=_needs_admin,
+        relevant_tools=_relevant_tools,
         mcp_disabled_map=_mcp_disabled_map,
         compact=_is_api_model,
-        owner=owner,
         suppress_local_context=guide_only,
     )
+    messages, mcp_schemas = _context_result.messages, _context_result.mcp_schemas
     if plan_mode and not guide_only:
         # Steer the model to investigate-then-propose. Hard tool gating handles
         # every write path except shell; this directive is what keeps the
