@@ -1,4 +1,4 @@
-"""Runtime context primitives for the agent loop."""
+"""Runtime coordination helpers for agent execution."""
 
 from src.runtime.context_budget import ContextBudget
 from src.runtime.context_engine import (

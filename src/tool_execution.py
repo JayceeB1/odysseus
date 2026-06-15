@@ -21,6 +21,9 @@ from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
 
 
+from src.runtime.budgets import ToolExecutionBudget
+from src.runtime.executor import ToolExecutorFacade
+from src.runtime.result_store import InMemoryResultStore
 from src.tool_security import is_public_blocked_tool, owner_is_admin_or_single_user
 from src.tool_policy import ToolPolicy
 from src.constants import MAX_OUTPUT_CHARS, MAX_READ_CHARS, MAX_DIFF_LINES, DATA_DIR
@@ -561,6 +564,16 @@ async def _dispatch_after_tool_hooks(
 # Dispatcher
 # ---------------------------------------------------------------------------
 
+_TIMEOUT_UNSAFE_TOOLS = {
+    "write_file", "edit_file",
+    "create_document", "update_document", "edit_document", "suggest_document",
+    "manage_documents", "manage_tasks", "manage_skills", "manage_endpoints",
+    "manage_mcp", "manage_webhooks", "manage_" + "to" + "kens", "manage_settings",
+    "manage_notes", "manage_calendar", "manage_contact", "manage_research",
+    "download_model", "serve_model", "stop_served_model", "cancel_download",
+    "serve_preset", "adopt_served_model", "app_api", "api_call",
+}
+
 async def execute_tool_block(
     block: Any,
     session_id: Optional[str] = None,
@@ -569,6 +582,9 @@ async def execute_tool_block(
     progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
     workspace: Optional[str] = None,
     tool_policy: Optional[Any] = None,
+    executor_budget: Optional[ToolExecutionBudget] = None,
+    result_store: Optional[InMemoryResultStore] = None,
+    executor_facade: Optional[ToolExecutorFacade] = None,
 ) -> Tuple[str, Dict]:
     """Execute a single tool block. Returns (description, result_dict).
 
@@ -578,13 +594,41 @@ async def execute_tool_block(
     """
     token = _active_workspace.set(workspace or None)
     try:
-        return await _execute_tool_block_impl(
-            block,
-            session_id=session_id,
-            disabled_tools=disabled_tools,
-            owner=owner,
-            progress_cb=progress_cb,
-            tool_policy=tool_policy,
+        tool_name = getattr(block, "tool_type", "unknown")
+        if (
+            executor_budget is not None
+            and executor_budget.timeout_seconds is not None
+            and executor_facade is None
+            and tool_name in _TIMEOUT_UNSAFE_TOOLS
+        ):
+            return f"{tool_name}: BLOCKED", {
+                "error": (
+                    f"Timeout budgets are not applied to side-effecting tool '{tool_name}' "
+                    "through execute_tool_block; use a tool-native timeout or a reviewed "
+                    "shared executor facade."
+                ),
+                "exit_code": 1,
+                "timeout_unsafe": True,
+            }
+
+        facade = executor_facade or ToolExecutorFacade(
+            budget=executor_budget,
+            result_store=result_store,
+        )
+
+        async def _provider() -> Tuple[str, Dict]:
+            return await _execute_tool_block_impl(
+                block,
+                session_id=session_id,
+                disabled_tools=disabled_tools,
+                owner=owner,
+                progress_cb=progress_cb,
+                tool_policy=tool_policy,
+            )
+
+        return await facade.execute(
+            tool_name=tool_name,
+            provider=_provider,
         )
     finally:
         _active_workspace.reset(token)

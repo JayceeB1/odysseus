@@ -74,7 +74,7 @@ def test_plugin_hooks_do_not_change_existing_tool_schema_surface():
     assert not any(name.startswith("plugin_") for name in schema_names)
 
     signature = inspect.signature(execute_tool_block)
-    assert list(signature.parameters) == [
+    assert list(signature.parameters)[:7] == [
         "block",
         "session_id",
         "disabled_tools",
@@ -83,6 +83,14 @@ def test_plugin_hooks_do_not_change_existing_tool_schema_surface():
         "workspace",
         "tool_policy",
     ]
+    assert {
+        name: signature.parameters[name].default
+        for name in ("executor_budget", "result_store", "executor_facade")
+    } == {
+        "executor_budget": None,
+        "result_store": None,
+        "executor_facade": None,
+    }
 
 
 def test_sanitize_for_audit_redacts_spaced_authorization_header():

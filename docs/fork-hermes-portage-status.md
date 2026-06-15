@@ -10,9 +10,9 @@ candidate branches.
 | --- | --- |
 | Fork branch | `fork/hermes-portage` |
 | Base branch | `upstream/dev` |
-| Integrated stack | PR-PATCH-001 + PR-PATCH-002 + PR-PATCH-003 + PR-PATCH-004 |
-| Latest local PR-PATCH commit | `1eb619e feat(portage): add turn context engine adapter` |
-| Latest fork integration commit | `e9b051a Merge branch 'portage-hermes/PR-PATCH-004-turncontext-contextengine' into fork/hermes-portage` |
+| Integrated stack | PR-PATCH-001 + PR-PATCH-002 + PR-PATCH-003 + PR-PATCH-004 + PR-PATCH-005 |
+| Latest local PR-PATCH commit | `6010906 feat(runtime): add tool executor budget facade` |
+| Latest fork integration commit | Current sync commit merging `upstream/dev` and PR-PATCH-005 into `fork/hermes-portage` |
 | Upstream-ready PR02 diff | `34d2ae1..60d58da` |
 | Fork integration policy | Merge locally into `fork/hermes-portage`; push to `origin` only. |
 
@@ -23,6 +23,7 @@ candidate branches.
 | BLOCK-PR02-UPSTREAM-001 | blocked | PR-PATCH-002 upstream draft PR | PR-PATCH-001 upstream PR is still open, so PR02 is stacked and `upstream/dev...PR02` contains PR01 + PR02. | Upstream PR #4107 is open; PR02-only diff is `34d2ae1..60d58da`. | After #4107 is merged, rebase PR02 onto updated `upstream/dev`, rerun gates, then create the draft upstream PR with `.codex-log/pr-patch-002-upstream-pr-body.md`. |
 | BLOCK-PR03-UPSTREAM-001 | blocked | PR-PATCH-003 upstream draft PR | Upstream already has plugin-system discussion/work, so another plugin PR is high duplicate/rejection risk. | Upstream issue #415 is open; upstream PR #416 was closed unmerged. Local PR03 branch is `portage-hermes/PR-PATCH-003-plugin-hooks-middleware` at `70baccc`; fork integration commit is `5570ec2`. Tests: `83 passed` for PR01/PR02/PR03 targeted stack and `compileall` OK. | If maintainers explicitly accept a smaller opt-in hook middleware slice, run `git checkout portage-hermes/PR-PATCH-003-plugin-hooks-middleware`, `git rebase upstream/dev`, `scripts\18_validate_upstream_diff_clean.bat`, rerun PR03 tests, then prepare a template-complete draft PR referencing #415/#416. |
 | BLOCK-PR04-UPSTREAM-001 | blocked | PR-PATCH-004 upstream draft PR | Upstream has open overlapping `agent_loop.py` refactors, so a new context-engine adapter PR is high conflict/rejection risk until those are resolved or maintainers ask for this smaller slice. | No exact `TurnContext` duplicate found. Open overlap: PR #3265 extracts streamed agent turns, PR #4246 changes context-aware RAG/agent loop retrieval, PR #1154 changes prompt/context budget handling. Local PR04 branch is `portage-hermes/PR-PATCH-004-turncontext-contextengine` at `1eb619e`; fork integration commit is `e9b051a`. Tests: PR04 context suite `135 passed`; fork PR01-PR03 stack `83 passed`; `uvicorn app:app` smoke returned HTTP 200. | After #3265/#4246/#1154 are merged, closed, or maintainers confirm this slice should proceed independently, run `git checkout portage-hermes/PR-PATCH-004-turncontext-contextengine`, `git rebase upstream/dev`, `scripts\18_validate_upstream_diff_clean.bat`, rerun PR04 tests, then prepare a template-complete draft PR. |
+| BLOCK-PR05-UPSTREAM-001 | blocked | PR-PATCH-005 upstream draft PR | The executor budget facade is implemented and validated locally, but there is no linked maintainer issue or concrete upstream problem statement yet. Opening an official PR now is high rejection risk as speculative abstraction work under `AGENTS.md`. | Local PR05 branch is `portage-hermes/PR-PATCH-005-executor-budgets-result-store` at `6010906`; targeted validation passed: `13 passed` for executor budget tests, `23 passed` for tool policy/truncation/unknown-tool regressions, `72 passed` for agent loop/context budget/sentinel stack, plus app health smoke. | Keep PR05 integrated in `fork/hermes-portage` for fork functionality. Before any upstream PR, obtain or write a concrete linked issue/problem statement, rebase PR05 onto current `upstream/dev`, rerun gates, and prepare a template-complete draft PR. |
 
 ## Fork Functional Queue
 
@@ -32,6 +33,7 @@ candidate branches.
 | PR-PATCH-002-toolset-scopes-profils | integrated in `fork/hermes-portage` | waiting for #4107 | Keep upstream candidate branch clean; do not add this tracker there. |
 | PR-PATCH-003-plugin-hooks-middleware | integrated in `fork/hermes-portage` | blocked by #415/#416 duplicate risk | Upstream candidate branch remains clean and pushed to `origin`; tracker lives only on fork-stable. |
 | PR-PATCH-004-turncontext-contextengine | integrated in `fork/hermes-portage` | blocked by open `agent_loop.py` overlap | Upstream candidate branch remains clean and pushed to `origin`; tracker lives only on fork-stable. |
+| PR-PATCH-005-executor-budgets-result-store | integrated in `fork/hermes-portage` | blocked pending linked concrete issue/problem statement | Upstream candidate branch remains clean and pushed to `origin`; tracker lives only on fork-stable. |
 
 ## Resume Commands
 
