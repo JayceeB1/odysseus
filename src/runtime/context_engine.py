@@ -72,6 +72,7 @@ class ContextEngine:
         mcp_disabled_map: dict[str, set] | None = None,
         compact: bool = False,
         suppress_local_context: bool = False,
+        active_email: Any = None,
     ) -> ContextBuildResult:
         """Build prompt messages and optional tool schemas for one turn."""
         messages, mcp_schemas = self._prompt_builder(
@@ -86,6 +87,7 @@ class ContextEngine:
             compact=compact,
             owner=turn.user,
             suppress_local_context=suppress_local_context,
+            active_email=active_email,
         )
 
         blocks = list(turn.untrusted_blocks)
