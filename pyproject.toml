@@ -21,4 +21,11 @@ markers = [
     # taxonomy. The fast lane runs `not slow`; mark a test slow only with
     # duration evidence (see tests/run_focus.py --durations and tests/README.md).
     "slow: opt-in marker for known-slow tests; excluded by the fast lane (not slow)",
+    "portage: Hermes portage PR-PATCH tests",
+    "pr_006: PR-PATCH-006 provider classifier/fallback tests",
+    "unit_contract: unit-level contract tests",
+    "security_contract: security and fail-closed contract tests",
+    "regression: non-regression compatibility tests",
+    "fault_injection: deterministic fault-injection tests",
+    "observability: trace and logging contract tests",
 ]
