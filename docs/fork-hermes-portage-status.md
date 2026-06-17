@@ -10,11 +10,19 @@ candidate branches.
 | --- | --- |
 | Fork branch | `fork/hermes-portage` |
 | Base branch | `upstream/dev` |
+| Current upstream/dev | `97a7f59 fix(ui): share one z-order stack across Notes and modals (#3798)` |
 | Integrated stack | PR-PATCH-001 + PR-PATCH-002 + PR-PATCH-003 + PR-PATCH-004 + PR-PATCH-005 + PR-PATCH-006 |
 | Latest local PR-PATCH commit | `5e74e15 feat(providers): add opt-in error recovery policy` |
 | Latest fork integration commit | `5118f8b merge: integrate PR06 into fork hermes portage` |
+| Latest fork maintenance commit | `5914518 test(fork): make canvas coords node import windows-safe` |
 | Upstream-ready PR02 diff | `34d2ae1..60d58da` |
 | Fork integration policy | Merge locally into `fork/hermes-portage`; push to `origin` only. |
+
+## Maintenance Notes
+
+- `fork/hermes-portage` was synced with `upstream/dev` at `97a7f59` via `7be8f1c merge: sync fork hermes portage with upstream dev`.
+- The upstream `tests/test_canvas_coords_empty_touches_js.py` Node ESM import used a Windows absolute path (`F:/...`) that fails under Node's default ESM loader. The fork-only follow-up `5914518` changes that test import to a `file://` URI.
+- Validation after the sync: `python -m pytest tests/test_canvas_coords_empty_touches_js.py tests/test_notes_z_order_js.py -q` -> `8 passed`, 1 SQLAlchemy warning.
 
 ## Blocking Items
 
