@@ -18,6 +18,7 @@ markers = [
     "portage: Hermes portage PR-PATCH tests",
     "pr_005: PR-PATCH-005 executor budgets/result store tests",
     "pr_008: PR-PATCH-008 session search contextualized recall tests",
+    "pr_009: PR-PATCH-009 skills runtime and learning loop tests",
     # Fast-lane marker (issue #3443). Opt-in and orthogonal to the area_*/sub_*
     # taxonomy. The fast lane runs `not slow`; mark a test slow only with
     # duration evidence (see tests/run_focus.py --durations and tests/README.md).
