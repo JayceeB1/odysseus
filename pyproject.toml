@@ -20,6 +20,7 @@ markers = [
     "pr_008: PR-PATCH-008 session search contextualized recall tests",
     "pr_009: PR-PATCH-009 skills runtime and learning loop tests",
     "pr_010: PR-PATCH-010 subagent delegation runtime tests",
+    "pr_011: PR-PATCH-011 gateway core and outbox tests",
     # Fast-lane marker (issue #3443). Opt-in and orthogonal to the area_*/sub_*
     # taxonomy. The fast lane runs `not slow`; mark a test slow only with
     # duration evidence (see tests/run_focus.py --durations and tests/README.md).
