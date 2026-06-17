@@ -165,10 +165,12 @@ def test_session_search_provider_injects_results_as_untrusted_context():
     assert calls == [{
         "query": "find modal jazz",
         "limit": 3,
-        "owner": "alice",
-        "include_archived": False,
-        "context_messages": 1,
-    }]
+            "owner": "alice",
+            "include_archived": False,
+            "context_messages": 1,
+            "restrict_owner": True,
+            "include_legacy_owner": False,
+        }]
     untrusted = [
         message
         for message in result.messages

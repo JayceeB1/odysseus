@@ -7,6 +7,7 @@ from src.runtime.context_engine import (
     ProviderError,
     SessionSearchContextProvider,
 )
+from src.runtime.session_recall import SessionRecallProvider
 from src.runtime.turn_context import TurnContext, UntrustedContextBlock
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "ContextBuildResult",
     "ContextEngine",
     "ProviderError",
+    "SessionRecallProvider",
     "SessionSearchContextProvider",
     "TurnContext",
     "UntrustedContextBlock",
