@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Protocol, Sequence
 
 from src.prompt_security import untrusted_context_message
+from src.runtime.session_recall import SessionSearchContextProvider
 from src.runtime.turn_context import TurnContext, UntrustedContextBlock
 
 logger = logging.getLogger(__name__)
@@ -135,73 +136,3 @@ class ContextEngine:
             out.insert(insert_idx, untrusted_context_message(block.label, block.content))
             insert_idx += 1
         return out
-
-
-@dataclass(frozen=True)
-class SessionSearchContextProvider:
-    """Optional session-search provider for ContextEngine.
-
-    It is intentionally not wired into the default agent loop yet. Callers must
-    pass it explicitly when they want prior-session snippets included.
-    """
-
-    search: Callable[..., Sequence[Any]] | None = None
-    limit: int = 3
-    context_messages: int = 1
-    label: str = "session search results"
-
-    def build(self, turn: TurnContext) -> Sequence[UntrustedContextBlock]:
-        query = turn.last_user_text()
-        if not query:
-            return ()
-
-        search = self.search or self._default_search
-        results = search(
-            query,
-            limit=self.limit,
-            owner=turn.user,
-            include_archived=False,
-            context_messages=self.context_messages,
-        )
-        if not results:
-            return ()
-        return (UntrustedContextBlock(self.label, self._format_results(results)),)
-
-    @staticmethod
-    def _default_search(*args, **kwargs):
-        from src.session_search import search_session_messages
-
-        return search_session_messages(*args, **kwargs)
-
-    @classmethod
-    def _format_results(cls, results: Sequence[Any]) -> str:
-        lines = ["Relevant prior-session snippets:"]
-        for index, result in enumerate(results, 1):
-            session_name = cls._value(result, "session_name", "Untitled")
-            session_id = cls._value(result, "session_id", "")
-            role = cls._value(result, "role", "")
-            snippet = cls._value(result, "content_snippet", "")
-            timestamp = cls._value(result, "timestamp", "")
-            lines.extend([
-                f"",
-                f"Result {index}:",
-                f"Session: {session_name} ({session_id})",
-                f"Role: {role}",
-                f"Timestamp: {timestamp}",
-                f"Snippet: {snippet}",
-            ])
-            for label, items in (
-                ("Before", cls._value(result, "context_before", [])),
-                ("After", cls._value(result, "context_after", [])),
-            ):
-                for item in items or []:
-                    item_role = cls._value(item, "role", "")
-                    item_content = cls._value(item, "content", "")
-                    lines.append(f"{label} ({item_role}): {item_content}")
-        return "\n".join(lines)
-
-    @staticmethod
-    def _value(result: Any, name: str, default: Any = "") -> Any:
-        if isinstance(result, dict):
-            return result.get(name, default)
-        return getattr(result, name, default)
