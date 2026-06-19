@@ -11,9 +11,9 @@ candidate branches.
 | Fork branch | `fork/hermes-portage` |
 | Base branch | `upstream/dev` |
 | Current upstream/dev | `1602674 fix(personal): scope RAG file delete to the caller's own upload dir (#4602)` |
-| Integrated stack | PR-PATCH-001 + PR-PATCH-002 + PR-PATCH-003 + PR-PATCH-004 + PR-PATCH-005 + PR-PATCH-006 + PR-PATCH-007 + PR-PATCH-015 + PR-PATCH-008 + PR-PATCH-009 + PR-PATCH-010 + PR-PATCH-011 |
-| Latest local PR-PATCH commit | `a0bfca1 PR-PATCH-011: add fail-closed gateway outbox core` |
-| Latest fork integration commit | `ab90234 Merge remote-tracking branch 'upstream/dev' into fork/hermes-portage` |
+| Integrated stack | PR-PATCH-001 + PR-PATCH-002 + PR-PATCH-003 + PR-PATCH-004 + PR-PATCH-005 + PR-PATCH-006 + PR-PATCH-007 + PR-PATCH-015 + PR-PATCH-008 + PR-PATCH-009 + PR-PATCH-010 + PR-PATCH-011 + PR-PATCH-012 |
+| Latest local PR-PATCH commit | `bd4bbdb PR-PATCH-012: add cron agent delivery contracts` |
+| Latest fork integration commit | `aaba998 Merge branch 'portage-hermes/PR-PATCH-012-cron-agentique-delivery' into fork/hermes-portage` |
 | Latest fork maintenance commit | `372ed0e fix(fork): restore agent loop function schema alias` |
 | Upstream-ready PR02 diff | `34d2ae1..60d58da` |
 | Fork integration policy | Merge locally into `fork/hermes-portage`; push to `origin` only. |
@@ -29,6 +29,8 @@ candidate branches.
 - `fork/hermes-portage` was synced with `upstream/dev` at `1602674` via `ab90234 Merge remote-tracking branch 'upstream/dev' into fork/hermes-portage`.
 - Upstream commit `ed18192` moved session tools into the `agent_tools` registry; fork maintenance commit `372ed0e` restores the `src.agent_loop.FUNCTION_TOOL_SCHEMAS` compatibility alias expected by the new API-call integration route tests.
 - Validation after the `1602674` sync: `python -m compileall -q src/runtime/session_recall.py src/skills src/subagents src/gateway src/agent_tools src/tool_schemas.py src/tool_execution.py src/agent_loop.py` -> OK; PR08-PR11 suite -> `60 passed`, warnings only; PR01/PR02 foundation suite -> `50 passed`, warnings only; upstream registry/API-call suite -> `44 passed`, warnings only.
+- PR12 was implemented as a fork-stack branch because cron agent delivery builds on fork-local toolset/gateway/runtime contracts that are not in `upstream/dev`.
+- PR12 validation after fork integration: `python -m pytest tests/test_cron_agent_delivery.py tests/test_task_shell_tools.py tests/test_toolset_agent_loop.py tests/test_gateway_outbox.py tests/test_scheduler_restart_doublefire.py tests/test_task_scheduler_session_delivery.py -q` -> `29 passed`, warnings only; `python -m compileall -q src/scheduler src/task_scheduler.py src/gateway src/runtime/turn_context.py` -> OK.
 
 ## Blocking Items
 
@@ -45,6 +47,7 @@ candidate branches.
 | BLOCK-PR09-UPSTREAM-001 | blocked | PR-PATCH-009 upstream draft PR | PR09 is implemented as an opt-in skills runtime/learning-loop contract on the fork stack, but there is no linked maintainer issue or concrete upstream problem statement yet. | Local PR09 branch is `portage-hermes/PR-PATCH-009-skills-runtime-learning-loop` at `cc9ea27`; fork integration commit is `65cb21f`. Validation passed: skills runtime/index/owner-isolation suite `14 passed`, compileall OK, upstream diff clean gate OK. | Keep PR09 integrated in `fork/hermes-portage`. Before upstream PR, obtain or write a concrete issue, rebase onto a base that contains any required runtime foundations, rerun gates, and prepare a template-complete draft PR. |
 | BLOCK-PR10-UPSTREAM-001 | blocked | PR-PATCH-010 upstream draft PR | PR10 is a security-sensitive subagent runtime foundation and depends on the fork-local runtime/budget/toolset stack. Upstream submission now would be stacked and speculative without maintainer confirmation. | Local PR10 branch is `portage-hermes/PR-PATCH-010-subagent-delegation-runtime` at `15c334a`; fork integration commit is `4ce5c41`. Validation passed: subagent/budget/toolset suite `23 passed`, compileall OK, upstream diff clean gate OK. Codex CLI review workers were attempted but timed out without usable findings. | Keep PR10 integrated in `fork/hermes-portage`. Before upstream PR, get maintainer confirmation for a disabled-by-default subagent slice, run a completed subagent/security review, rebase onto accepted prerequisites, rerun gates, and prepare a template-complete draft PR. |
 | BLOCK-PR11-UPSTREAM-001 | blocked | PR-PATCH-011 upstream draft PR | PR11 is a security-sensitive gateway/outbox foundation with no real adapter exposed, but it depends on the fork-local runtime stack and needs maintainer confirmation before upstreaming. | Local PR11 branch is `portage-hermes/PR-PATCH-011-gateway-core-outbox` at `a0bfca1`; fork integration commit is `0e12bf8`. Validation passed: gateway/companion/reminder scope suite `25 passed`, combined PR08-PR11 validation `60 passed`, compileall OK, upstream diff clean gate OK. | Keep PR11 integrated in `fork/hermes-portage`. Before upstream PR, get maintainer confirmation for a fake-adapter/outbox-only gateway slice, rebase onto accepted prerequisites, rerun gates, and prepare a template-complete draft PR. |
+| BLOCK-PR12-UPSTREAM-001 | blocked | PR-PATCH-012 upstream draft PR | PR12 extends cron delivery with fork-local scheduler, toolset, gateway outbox, and trace contracts. Upstream submission now would be stacked on PR02/PR08-PR11 prerequisites and requires maintainer confirmation because it is security-sensitive cron/gateway delivery work. | Local PR12 branch is `portage-hermes/PR-PATCH-012-cron-agentique-delivery` at `bd4bbdb`; fork integration commit is `aaba998`. Validation passed: cron delivery/scheduler/toolset/gateway suite `29 passed`, compileall OK. | Keep PR12 integrated in `fork/hermes-portage`. Before upstream PR, wait for prerequisite stack or maintainer-approved stack submission, run subagent security/tests review, rebase onto accepted base, rerun gates, and prepare a template-complete draft PR. |
 
 ## Fork Functional Queue
 
@@ -62,6 +65,7 @@ candidate branches.
 | PR-PATCH-009-skills-runtime-learning-loop | integrated in `fork/hermes-portage` | blocked pending linked concrete issue/problem statement and prerequisite base | Upstream candidate branch remains clean and pushed to `origin`; tracker lives only on fork-stable. |
 | PR-PATCH-010-subagent-delegation-runtime | integrated in `fork/hermes-portage` | blocked pending maintainer confirmation and completed security review | Upstream candidate branch remains clean and pushed to `origin`; tracker lives only on fork-stable. |
 | PR-PATCH-011-gateway-core-outbox | integrated in `fork/hermes-portage` | blocked pending maintainer confirmation and prerequisite base | Upstream candidate branch remains clean and pushed to `origin`; tracker lives only on fork-stable. |
+| PR-PATCH-012-cron-agentique-delivery | integrated in `fork/hermes-portage` | blocked pending maintainer confirmation, prerequisite base, and security review | Upstream candidate branch remains clean and pushed to `origin`; tracker lives only on fork-stable. |
 
 ## Resume Commands
 
