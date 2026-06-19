@@ -10,11 +10,11 @@ candidate branches.
 | --- | --- |
 | Fork branch | `fork/hermes-portage` |
 | Base branch | `upstream/dev` |
-| Current upstream/dev | `97a7f59 fix(ui): share one z-order stack across Notes and modals (#3798)` |
+| Current upstream/dev | `1602674 fix(personal): scope RAG file delete to the caller's own upload dir (#4602)` |
 | Integrated stack | PR-PATCH-001 + PR-PATCH-002 + PR-PATCH-003 + PR-PATCH-004 + PR-PATCH-005 + PR-PATCH-006 + PR-PATCH-007 + PR-PATCH-015 + PR-PATCH-008 + PR-PATCH-009 + PR-PATCH-010 + PR-PATCH-011 |
 | Latest local PR-PATCH commit | `a0bfca1 PR-PATCH-011: add fail-closed gateway outbox core` |
-| Latest fork integration commit | `0e12bf8 Merge branch 'portage-hermes/PR-PATCH-011-gateway-core-outbox' into fork/hermes-portage` |
-| Latest fork maintenance commit | `c5109d9 docs(fork): refine PR15 upstream blocker` |
+| Latest fork integration commit | `ab90234 Merge remote-tracking branch 'upstream/dev' into fork/hermes-portage` |
+| Latest fork maintenance commit | `372ed0e fix(fork): restore agent loop function schema alias` |
 | Upstream-ready PR02 diff | `34d2ae1..60d58da` |
 | Fork integration policy | Merge locally into `fork/hermes-portage`; push to `origin` only. |
 
@@ -26,6 +26,9 @@ candidate branches.
 - PR07 validation on the upstream candidate branch: `python -m py_compile src\memory_provider.py tests\test_memory_provider_lifecycle.py`; `python -m pytest tests\test_memory_provider.py tests\test_memory_provider_lifecycle.py -q` -> `11 passed`; memory-adjacent suite excluding the unrelated encoding portability failure in `tests/test_manage_memory_list.py` -> `49 passed`; `18_validate_upstream_diff_clean.bat` -> OK.
 - PR08-PR11 were implemented as fork-stack branches because their target runtime files depend on earlier local PR-PATCH foundations that are not in `upstream/dev`.
 - Combined validation after PR11 integration: `python -m pytest tests/test_session_recall_context.py tests/test_context_engine.py tests/test_session_search.py tests/test_skills_runtime.py tests/test_skill_index_prompt_injection.py tests/test_subagent_runtime.py tests/test_gateway_outbox.py tests/test_companion_pairing.py tests/test_note_reminder_fire_scope.py -q` -> `60 passed`, warnings only; `python -m compileall -q src/runtime/session_recall.py src/skills src/subagents src/gateway` -> OK.
+- `fork/hermes-portage` was synced with `upstream/dev` at `1602674` via `ab90234 Merge remote-tracking branch 'upstream/dev' into fork/hermes-portage`.
+- Upstream commit `ed18192` moved session tools into the `agent_tools` registry; fork maintenance commit `372ed0e` restores the `src.agent_loop.FUNCTION_TOOL_SCHEMAS` compatibility alias expected by the new API-call integration route tests.
+- Validation after the `1602674` sync: `python -m compileall -q src/runtime/session_recall.py src/skills src/subagents src/gateway src/agent_tools src/tool_schemas.py src/tool_execution.py src/agent_loop.py` -> OK; PR08-PR11 suite -> `60 passed`, warnings only; PR01/PR02 foundation suite -> `50 passed`, warnings only; upstream registry/API-call suite -> `44 passed`, warnings only.
 
 ## Blocking Items
 
