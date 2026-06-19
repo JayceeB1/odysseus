@@ -72,7 +72,7 @@ External content that reaches the LLM is treated as untrusted via `src/prompt_se
 
 These are open, acknowledged, and contributor help is welcome:
 
-1. **No shell/filesystem sandbox.** The agent `bash` and `read_file`/`write_file` tools run as the app process user with no network egress filtering or filesystem confinement. A successful prompt-injection reaching a shell-enabled admin session can make outbound requests to internal services. See #1058 for the sandbox proposal.
+1. **No host shell/filesystem sandbox.** The agent `bash`, `python`, and file tools use the terminal backend abstraction, but the default `HostBackend` still runs as the app process user. The abstraction is a routing and policy seam, not a security boundary. Host execution has no network egress filtering and only the existing owner/toolset/path checks protect it. `DockerBackend` is experimental and fail-closed until a reviewed mount/egress policy exists. A successful prompt-injection reaching a shell-enabled admin session can make outbound requests to internal services. See #1058 for the sandbox proposal.
 
 2. **SSRF via `/api/v1/chat` `base_url` parameter.** A chat-scoped API token can supply an arbitrary `base_url`; the server forwards the LLM request to that host without validating the scheme or address. PR #1039 fixes this.
 
