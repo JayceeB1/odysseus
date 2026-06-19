@@ -73,6 +73,7 @@ def _unified_diff(old: str, new: str, path: str) -> Optional[Dict[str, Any]]:
 class EditFileTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import _resolve_tool_path, _resolve_search_root, _truncate
+        from src.terminal_backends import backend_from_context
         try:
             args = json.loads(content) if content.strip().startswith("{") else {}
         except (json.JSONDecodeError, TypeError):
@@ -92,22 +93,13 @@ class EditFileTool:
         if old == new:
             return {"error": "edit_file: old_string and new_string are identical", "exit_code": 1}
 
-        def _apply():
-            """Helper function that performs the actual string replacement and file writing logic."""
-            with open(path, "r", encoding="utf-8") as f:
-                original = f.read()
-            count = original.count(old)
-            if count == 0:
-                return original, None, "not_found"
-            if count > 1 and not replace_all:
-                return original, None, f"not_unique:{count}"
-            updated = original.replace(old, new) if replace_all else original.replace(old, new, 1)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(updated)
-            return original, updated, "ok"
-
         try:
-            original, updated, status = await asyncio.to_thread(_apply)
+            original, updated, status = await backend_from_context(ctx).patch_text(
+                path,
+                old,
+                new,
+                replace_all=replace_all,
+            )
         except FileNotFoundError:
             return {"error": f"edit_file: {path}: not found (use write_file to create it)", "exit_code": 1}
         except (IsADirectoryError, UnicodeDecodeError):
@@ -133,6 +125,7 @@ class EditFileTool:
 class ReadFileTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import _resolve_tool_path, _resolve_search_root, _truncate
+        from src.terminal_backends import backend_from_context
         raw_path, offset, limit = content.split("\n", 1)[0].strip(), 0, 0
         _stripped = content.strip()
         if _stripped.startswith("{"):
@@ -148,26 +141,12 @@ class ReadFileTool:
         except ValueError as e:
             return {"error": f"read_file: {e}", "exit_code": 1}
         try:
-            def _read():
-                if offset > 0 or limit > 0:
-                    start = max(offset, 1)
-                    out, n, budget = [], 0, MAX_READ_CHARS
-                    with open(path, "r", encoding="utf-8", errors="replace") as f:
-                        for i, line in enumerate(f, 1):
-                            if i < start:
-                                continue
-                            if limit > 0 and n >= limit:
-                                break
-                            out.append(line)
-                            n += 1
-                            budget -= len(line)
-                            if budget <= 0:
-                                out.append(f"\n... [truncated at {MAX_READ_CHARS} chars]")
-                                break
-                    return "".join(out)
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
-                    return f.read(MAX_READ_CHARS + 1)
-            data = await asyncio.to_thread(_read)
+            data = await backend_from_context(ctx).read_text(
+                path,
+                offset=offset,
+                limit=limit,
+                max_chars=MAX_READ_CHARS,
+            )
         except FileNotFoundError:
             return {"error": f"read_file: {path}: not found", "exit_code": 1}
         except PermissionError:
@@ -183,6 +162,7 @@ class ReadFileTool:
 class WriteFileTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import _resolve_tool_path, _resolve_search_root, _truncate
+        from src.terminal_backends import backend_from_context
         lines = content.split("\n", 1)
         raw_path = lines[0].strip()
         body = lines[1] if len(lines) > 1 else ""
@@ -191,20 +171,8 @@ class WriteFileTool:
         except ValueError as e:
             return {"error": f"write_file: {e}", "exit_code": 1}
         try:
-            def _write():
-                old = ""
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        old = f.read()
-                except (FileNotFoundError, IsADirectoryError, UnicodeDecodeError, OSError):
-                    old = ""
-                d = os.path.dirname(path)
-                if d:
-                    os.makedirs(d, exist_ok=True)
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(body)
-                return old, len(body)
-            old_content, size = await asyncio.to_thread(_write)
+            old_content = await backend_from_context(ctx).write_text(path, body)
+            size = len(body)
         except PermissionError:
             return {"error": f"write_file: {path}: permission denied", "exit_code": 1}
         except OSError as e:

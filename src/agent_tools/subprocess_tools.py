@@ -103,51 +103,39 @@ async def _run_subprocess_streaming(
 class BashTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import agent_cwd, _truncate
+        from src.terminal_backends import TerminalCommand, backend_from_context
         progress_cb = ctx.get("progress_cb")
         _subproc_env = ctx.get("subproc_env")
-        proc = await asyncio.create_subprocess_shell(
-            content,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=_subproc_env,
+        backend = backend_from_context(ctx)
+        result = await backend.run(TerminalCommand(
+            command=content,
             cwd=agent_cwd(),
-        )
-        stdout, stderr, rc, timed_out = await _run_subprocess_streaming(
-            proc,
+            env=_subproc_env,
             timeout=DEFAULT_BASH_TIMEOUT,
             progress_cb=progress_cb,
-        )
-        if timed_out:
-            return {"error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — process killed", "exit_code": 124, "stdout": _truncate(stdout, MAX_OUTPUT_CHARS), "stderr": _truncate(stderr, MAX_OUTPUT_CHARS)}
-        output = stdout.rstrip()
-        err = stderr.rstrip()
-        if err:
-            output = (output + "\nSTDERR: " + err).strip() if output else "STDERR: " + err
+        ))
+        if result.timed_out:
+            return {"error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — process killed", "exit_code": 124, "stdout": _truncate(result.stdout, MAX_OUTPUT_CHARS), "stderr": _truncate(result.stderr, MAX_OUTPUT_CHARS)}
+        output = result.combined_output()
         output = _truncate(output, MAX_OUTPUT_CHARS)
-        return {"output": output or "(no output)", "exit_code": rc or 0}
+        return {"output": output or "(no output)", "exit_code": result.exit_code}
 
 class PythonTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import agent_cwd, _truncate
+        from src.terminal_backends import TerminalCommand, backend_from_context
         progress_cb = ctx.get("progress_cb")
         _subproc_env = ctx.get("subproc_env")
-        proc = await asyncio.create_subprocess_exec(
-            (sys.executable or "python"), "-I", "-c", content,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=_subproc_env,
+        backend = backend_from_context(ctx)
+        result = await backend.run(TerminalCommand(
+            argv=(sys.executable or "python", "-I", "-c", content),
             cwd=agent_cwd(),
-        )
-        stdout, stderr, rc, timed_out = await _run_subprocess_streaming(
-            proc,
+            env=_subproc_env,
             timeout=DEFAULT_PYTHON_TIMEOUT,
             progress_cb=progress_cb,
-        )
-        if timed_out:
-            return {"error": f"python: timed out after {DEFAULT_PYTHON_TIMEOUT}s — process killed", "exit_code": 124, "stdout": _truncate(stdout, MAX_OUTPUT_CHARS), "stderr": _truncate(stderr, MAX_OUTPUT_CHARS)}
-        output = stdout.rstrip()
-        err = stderr.rstrip()
-        if err:
-            output = (output + "\nSTDERR: " + err).strip() if output else "STDERR: " + err
+        ))
+        if result.timed_out:
+            return {"error": f"python: timed out after {DEFAULT_PYTHON_TIMEOUT}s — process killed", "exit_code": 124, "stdout": _truncate(result.stdout, MAX_OUTPUT_CHARS), "stderr": _truncate(result.stderr, MAX_OUTPUT_CHARS)}
+        output = result.combined_output()
         output = _truncate(output, MAX_OUTPUT_CHARS)
-        return {"output": output or "(no output)", "exit_code": rc or 0}
+        return {"output": output or "(no output)", "exit_code": result.exit_code}
