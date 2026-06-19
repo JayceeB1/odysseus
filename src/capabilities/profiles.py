@@ -89,7 +89,6 @@ GATEWAY_TOOLS = frozenset({
 })
 
 BROWSER_TOOLS = frozenset({
-    "app_api",
     "web_fetch",
     "web_search",
 })
