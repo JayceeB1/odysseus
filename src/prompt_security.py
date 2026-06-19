@@ -80,3 +80,8 @@ def untrusted_context_message(label: str, content: Any) -> Dict[str, Any]:
         ),
         "metadata": {"trusted": False, "source": label},
     }
+
+
+def untrusted_browser_context_message(url: str, content: Any) -> Dict[str, Any]:
+    """Wrap browser-observed page content as untrusted source data."""
+    return untrusted_context_message(f"browser automation: {url}", content)
