@@ -33,6 +33,7 @@ from src.agent_tools import (
     set_active_document,
     set_active_model,
     function_call_to_tool_block,
+    FUNCTION_TOOL_SCHEMAS,
     get_function_schemas,
     TOOL_TAGS,
     ToolBlock,
