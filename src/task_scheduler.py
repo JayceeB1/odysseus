@@ -317,6 +317,7 @@ class TaskScheduler:
         self._run_semaphore = asyncio.Semaphore(1)
         self._concurrency_cap = 1
         self._task_handles = {}
+        self._gateway_outbox = None
 
     def _set_run_progress(self, run_id: str, message: str):
         """Persist short live progress text for Activity while a run is active."""
@@ -764,6 +765,9 @@ class TaskScheduler:
                 db.commit()
 
             task_type = task.task_type or "llm"
+            from src.scheduler.agent_job import AgentJobSpec, build_cron_run_trace
+            job_spec = AgentJobSpec.from_task(task, run_id=run_id)
+            delivery_trace = None
 
             from src.builtin_actions import TaskDeferred, TaskNoop
 
@@ -791,7 +795,15 @@ class TaskScheduler:
                 if getattr(self, "_last_run_model", None):
                     run.model = self._last_run_model
                 if run.status == "success":
-                    await self._deliver_task_result(task, result, db, model=getattr(self, "_last_run_model", None))
+                    delivery_result = await self._deliver_task_result(
+                        task,
+                        result,
+                        db,
+                        model=getattr(self, "_last_run_model", None),
+                        job_spec=job_spec,
+                    )
+                    if delivery_result is not None:
+                        delivery_trace = delivery_result.to_trace()
             except TaskDeferred as defer:
                 count = self._task_defer_counts.get(task_id, 0) + 1
                 self._task_defer_counts[task_id] = count
@@ -874,6 +886,11 @@ class TaskScheduler:
                     task.status = "completed"
             else:
                 task.next_run = None
+
+            run.steps = json.dumps(
+                build_cron_run_trace(job_spec, delivery=delivery_trace),
+                sort_keys=True,
+            )
 
             db.commit()
             logger.info(f"Task '{task.name}' completed (run {run_id})")
@@ -1498,7 +1515,7 @@ class TaskScheduler:
 
         return result
 
-    async def _deliver_task_result(self, task, result: str, db, model: str = None):
+    async def _deliver_task_result(self, task, result: str, db, model: str = None, job_spec=None):
         """Deliver a completed task result according to output_target.
 
         This is intentionally shared by LLM/research/action tasks so built-in
@@ -1517,14 +1534,21 @@ class TaskScheduler:
             return
         if output.startswith("mcp__"):
             await self._deliver_via_mcp(output, task, result)
-            return
+            return None
+
+        if output.startswith("gateway:"):
+            from src.scheduler.agent_job import AgentJobSpec
+            from src.scheduler.delivery import dispatch_cron_delivery
+
+            job = job_spec or AgentJobSpec.from_task(task, run_id="manual")
+            return dispatch_cron_delivery(self, job, result, output_target=output)
 
         if self._is_email_output_target(output):
             await self._deliver_via_email(output, task, result)
-            return
+            return None
 
         if output != "session":
-            return
+            return None
 
         endpoint_url = task.endpoint_url
         model_name = model or task.model
@@ -1619,6 +1643,7 @@ class TaskScheduler:
             db.add(user_msg)
             db.add(assistant_msg)
             db.commit()
+        return None
 
     @staticmethod
     def _is_email_output_target(output: str) -> bool:
