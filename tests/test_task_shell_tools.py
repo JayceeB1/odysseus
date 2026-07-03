@@ -112,7 +112,7 @@ async def test_scheduled_task_honors_global_disabled_tools(monkeypatch):
 
     async def _capture(endpoint_url, model, task, session_id, *,
                        system_prompt=None, disabled_tools=None, relevant_tools=None,
-                       **_kwargs):
+                       datetime_context_msg=None, **_kwargs):
         captured["disabled_tools"] = disabled_tools
         captured["relevant_tools"] = relevant_tools
         return "done"

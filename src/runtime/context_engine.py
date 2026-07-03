@@ -73,6 +73,7 @@ class ContextEngine:
         mcp_disabled_map: dict[str, set] | None = None,
         compact: bool = False,
         suppress_local_context: bool = False,
+        suppress_skills: bool = False,
         active_email: Any = None,
     ) -> ContextBuildResult:
         """Build prompt messages and optional tool schemas for one turn."""
@@ -88,6 +89,7 @@ class ContextEngine:
             compact=compact,
             owner=turn.user,
             suppress_local_context=suppress_local_context,
+            suppress_skills=suppress_skills,
             active_email=active_email,
         )
 
